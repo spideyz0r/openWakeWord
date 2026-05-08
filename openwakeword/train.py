@@ -1,3 +1,10 @@
+# Python 3.12 multiprocessing: use fork to avoid pickle errors with lambdas in DataLoader
+import multiprocessing
+try:
+    multiprocessing.set_start_method("fork", force=True)
+except RuntimeError:
+    pass
+
 import torch
 from torch import optim, nn
 import torchinfo
@@ -426,8 +433,12 @@ class Model(nn.Module):
         # Save ONNX model
         logging.info(f"####\nSaving ONNX mode as '{os.path.join(output_dir, model_name + '.onnx')}'")
         model_to_save = copy.deepcopy(model)
+        # Use legacy exporter to avoid onnxscript dependency (torch >= 2.1)
+        export_kwargs = dict(opset_version=13)
+        if hasattr(torch.onnx, "dynamo_export"):
+            export_kwargs["dynamo"] = False
         torch.onnx.export(model_to_save.to("cpu"), torch.rand(self.input_shape)[None, ],
-                          os.path.join(output_dir, model_name + ".onnx"), opset_version=13)
+                          os.path.join(output_dir, model_name + ".onnx"), **export_kwargs)
 
         return None
 
@@ -641,9 +652,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
     config = yaml.load(open(args.training_config, 'r').read(), yaml.Loader)
 
-    # imports Piper for synthetic sample generation
-    sys.path.insert(0, os.path.abspath(config["piper_sample_generator_path"]))
-    from generate_samples import generate_samples
+    # imports Piper for synthetic sample generation (only needed for --generate_clips)
+    generate_samples = None
+    if args.generate_clips:
+        sys.path.insert(0, os.path.abspath(config["piper_sample_generator_path"]))
+        try:
+            from generate_samples import generate_samples
+        except ImportError as e:
+            print(f"ERROR: Could not import generate_samples from piper_sample_generator_path: {e}")
+            print("If you are using pre-generated clips, skip --generate_clips and run --augment_clips and --train_model directly.")
+            sys.exit(1)
 
     # Define output locations
     config["output_dir"] = os.path.abspath(config["output_dir"])

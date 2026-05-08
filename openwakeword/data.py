@@ -36,6 +36,18 @@ import mutagen
 import acoustics
 
 
+def _torchaudio_load(path):
+    """torchaudio.load wrapper — falls back to soundfile when torchcodec/FFmpeg
+    is unavailable (torchaudio >= 2.9 on systems without FFmpeg)."""
+    try:
+        return torchaudio.load(path)
+    except Exception:
+        import soundfile as sf
+        import numpy as np
+        data, sr = sf.read(str(path), dtype="float32", always_2d=True)
+        return torch.from_numpy(data.T), sr
+
+
 # Load audio clips and structure into clips of the same length
 def stack_clips(audio_data, clip_size=16000*2):
     """
@@ -671,7 +683,7 @@ def augment_clips(
         batch = clip_paths[i:i+batch_size]
         augmented_clips = []
         for clip in batch:
-            clip_data, clip_sr = torchaudio.load(clip)
+            clip_data, clip_sr = _torchaudio_load(clip)
             clip_data = clip_data[0]
             if clip_data.shape[0] > total_length:
                 clip_data = clip_data[0:total_length]
