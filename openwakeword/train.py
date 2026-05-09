@@ -655,13 +655,23 @@ if __name__ == '__main__':
     # imports Piper for synthetic sample generation (only needed for --generate_clips)
     generate_samples = None
     if args.generate_clips:
-        sys.path.insert(0, os.path.abspath(config["piper_sample_generator_path"]))
+        piper_gen_path = config.get("piper_sample_generator_path")
+        if piper_gen_path:
+            sys.path.insert(0, os.path.abspath(piper_gen_path))
         try:
             from generate_samples import generate_samples
-        except ImportError as e:
-            print(f"ERROR: Could not import generate_samples from piper_sample_generator_path: {e}")
-            print("If you are using pre-generated clips, skip --generate_clips and run --augment_clips and --train_model directly.")
-            sys.exit(1)
+        except ImportError:
+            # piper-phonemize has no Python 3.12 wheel; fall back to piper-binary generator
+            _oww_dir = os.path.dirname(os.path.abspath(__file__))
+            if _oww_dir not in sys.path:
+                sys.path.insert(0, _oww_dir)
+            try:
+                from generate_samples_binary import generate_samples
+                print("INFO: piper-phonemize unavailable; using piper-binary generator (Python 3.12 compatible)")
+            except ImportError as e2:
+                print(f"ERROR: Could not import generate_samples or generate_samples_binary: {e2}")
+                print("If you are using pre-generated clips, skip --generate_clips.")
+                sys.exit(1)
 
     # Define output locations
     config["output_dir"] = os.path.abspath(config["output_dir"])
