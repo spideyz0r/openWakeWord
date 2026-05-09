@@ -128,13 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Most notebooks
-notebooks/
-!notebooks/automatic_model_training.ipynb
-!notebooks/converting_google_speech_embedding_model.ipynb
-!notebooks/performance_metrics.ipynb
-!notebooks/training_models.ipynb
-!notebooks/colab_py312_compat.py
+# training_tutorial_data excluded by default
 !training_tutorial_data
 
 # Most example files
