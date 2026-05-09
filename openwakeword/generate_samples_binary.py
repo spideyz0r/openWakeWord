@@ -15,6 +15,10 @@ import tarfile
 import urllib.request
 import uuid
 
+import numpy as np
+import soundfile as sf
+import resampy
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_PIPER_DIR = os.environ.get("PIPER_DIR", "/content/piper")
@@ -128,6 +132,11 @@ def generate_samples(
 
         result = subprocess.run(cmd, input=txt.encode(), capture_output=True)
         if result.returncode == 0 and os.path.isfile(out_path) and os.path.getsize(out_path) > 0:
+            # Resample to 16000 Hz as required by augment_clips
+            data, sr = sf.read(out_path)
+            if sr != 16000:
+                data = resampy.resample(data, sr, 16000)
+                sf.write(out_path, data, 16000)
             generated += 1
         else:
             logger.warning(
