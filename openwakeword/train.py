@@ -433,12 +433,14 @@ class Model(nn.Module):
         # Save ONNX model
         logging.info(f"####\nSaving ONNX mode as '{os.path.join(output_dir, model_name + '.onnx')}'")
         model_to_save = copy.deepcopy(model)
-        # Use legacy exporter to avoid onnxscript dependency (torch >= 2.1)
-        export_kwargs = dict(opset_version=13)
-        if hasattr(torch.onnx, "dynamo_export"):
-            export_kwargs["dynamo"] = False
-        torch.onnx.export(model_to_save.to("cpu"), torch.rand(self.input_shape)[None, ],
-                          os.path.join(output_dir, model_name + ".onnx"), **export_kwargs)
+        # Use legacy TorchScript-based exporter to avoid onnxscript dependency (torch >= 2.1)
+        try:
+            from torch.onnx import utils as _onnx_utils
+            _legacy_export = _onnx_utils.export
+        except Exception:
+            _legacy_export = torch.onnx.export
+        _legacy_export(model_to_save.to("cpu"), torch.rand(self.input_shape)[None, ],
+                       os.path.join(output_dir, model_name + ".onnx"), opset_version=13)
 
         return None
 
