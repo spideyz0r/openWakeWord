@@ -37,4 +37,39 @@ _patch(
     """),
 )
 
+# 3. torchaudio >= 2.6 removed torchaudio.info — patch torch_audiomentations to use soundfile
+_torchaudio_info_patch_old = '''    info = torchaudio.info(file_path)
+        # Deal with backwards-incompatible signature change.
+        # See https://github.com/pytorch/audio/issues/903 for more information.
+        if type(info) is tuple:
+            si, ei = info
+            num_samples = si.length
+            sample_rate = si.rate
+        else:
+            num_samples = info.num_frames
+            sample_rate = info.sample_rate
+        return num_samples, sample_rate'''
+
+_torchaudio_info_patch_new = '''    try:
+            info = torchaudio.info(file_path)
+            if type(info) is tuple:
+                si, ei = info
+                num_samples = si.length
+                sample_rate = si.rate
+            else:
+                num_samples = info.num_frames
+                sample_rate = info.sample_rate
+        except AttributeError:
+            import soundfile as _sf
+            _info = _sf.info(str(file_path))
+            num_samples = _info.frames
+            sample_rate = _info.samplerate
+        return num_samples, sample_rate'''
+
+_patch(
+    "torch_audiomentations/utils/io.py",
+    _torchaudio_info_patch_old,
+    _torchaudio_info_patch_new,
+)
+
 print("Done.")
